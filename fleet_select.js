@@ -124,7 +124,7 @@ function initUI(ids) {
     div.setAttribute("class", "ui-draggable");
     div.style.position = "fixed";
     //div.style.height = "142px";
-    div.style.width = "111px";
+    div.style.width = "131px";
     div.style.display = "block";
     div.style.left = "76%";
     div.style.top = "16%";
@@ -136,17 +136,40 @@ function initUI(ids) {
     span.innerHTML = "攻击助手";
     div.appendChild(span);
     var form = document.createElement("form");
-    //form.setAttribute("onsubmit", "return (function(a){console.log(a);return true})(this)");
-    //form.setAttribute("onsubmit","return (function(){loadIds();})()");
     form.setAttribute("id", "ids-form");
     form.style.width = "100%";
+
+    var input0 = document.createElement("input");
+    input0.setAttribute("type", "text");
+    input0.setAttribute("id", "fleet-form-input");
+    input0.setAttribute("class", "input-text");
+    input0.setAttribute("title", "你的舰队ID");
+    input0.setAttribute("onkeyup", "this.value=this.value.replace(/\\D/g,'');localStorage.setItem('my_fleet', this.value);");
+    input0.style.width = "60px";
+    if (localStorage.getItem('my_fleet')) {
+        input0.value = localStorage.getItem('my_fleet');
+    }
+    form.appendChild(input0);
+    var btn0 = document.createElement("input");
+    btn0.setAttribute("type", "button");
+    btn0.setAttribute("value", "攻击");
+    btn0.setAttribute("class", "input-button");
+    btn0.setAttribute("onclick", "var id = document.getElementById('fleet-form-input').value; if (id.length > 0) window.location.href = 'fleet.aspx?fleet=' + id + '&view=attack'");
+    form.appendChild(btn0);
+
+    span = document.createElement("span");
+    span.setAttribute("class", "galaxy");
+    span.style.cursor = "default";
+    span.innerHTML = "敌人ID列表";
+    form.appendChild(span);
+
     var input = document.createElement("input");
     input.setAttribute("type", "text");
     input.setAttribute("id", "ids-form-input");
     input.setAttribute("class", "input-text");
     input.setAttribute("title", "玩家的数字ID");
     input.setAttribute("onkeyup", "this.value=this.value.replace(/\\D/g,'')");
-    input.style.width = "40px";
+    input.style.width = "60px";
     form.appendChild(input);
     var btn = document.createElement("input");
     btn.setAttribute("type", "submit");
@@ -163,6 +186,8 @@ function initUI(ids) {
         addRow(table, ids[i]);
     }
     div.appendChild(table);
+
+
     //body.insertBefore(div, body.firstElementChild);
     var x = document.getElementById("background-container");
     if (x) {
