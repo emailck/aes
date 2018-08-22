@@ -1,25 +1,104 @@
 // ==UserScript==
 
-// @name     过滤舰队
+// @name    一键攻击
 
 // @namespace  http://tampermonkey.net/
 
-// @version   0.1
+// @version   0.2
 
-// @description 只显示指定角色的舰队，只在攻击页面生效
+// @description 一键攻击
 
 // @author    lyingdragon
 
-// @include   *//typhon.astroempires.com/*
+// @include   *//*.astroempires.com/*
 
 // @grant    none
 
 // ==/UserScript==
 
+function addReport(param) {
+    if (param.readyState != 4 || param.status != 200) {
+        return;
+    }
+    var offset = param.responseText.indexOf("<small>(", 1000);
+    if (offset < 0) {
+        return;
+    }
+    var offset2 = param.responseText.indexOf("</small>", offset);
+    var str = param.responseText.substring(offset, offset2);
+    str = str.substring(8, str.indexOf(')'));
+    var report = document.createElement('p');
+    report.innerHTML = str;
+    report.style.color = "#FF0000";
+    report.setAttribute("class", "myreport");
+    var div = document.getElementById("base_div");
+    var reports = div.getElementsByClassName("myreport");
+    if (!reports || reports.length <= 0) {
+        div.appendChild(report);
+    } else {
+        div.insertBefore(report, reports[0]);
+    }
+}
 
+function postAsync(url2get, sendstr, sync, callback) {
+    var req = new XMLHttpRequest();
+    req.open("POST", url2get, sync);
+    req.setRequestHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
+    req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    req.send(sendstr);
+    if (sync) {
+        req.onreadystatechange = f => {callback(req);};
+        return;
+    }
+    if (req.readyState == 4 && req.status == 200) {
+        return req.responseText;
+    }
+}
+
+function attack(btn, times) {
+    var res_str = postAsync(btn.parentElement.action, "form=true", false);
+    if (!res_str) {
+        return;
+    }
+    var div = document.createElement('div');
+    document.body.appendChild(div);
+    div.innerHTML = res_str;
+    div.style.display = "none";
+    var btns = div.getElementsByClassName("input-button input-button-important");
+    if (!btns || btns.length <= 0) {
+        return;
+    }
+    var form = btns[0].parentNode;
+    var post_data = [];
+    for (var i = 0; i < form.childNodes.length; ++i) {
+        var node = form.childNodes[i];
+        if (node.type != 'hidden') {
+            continue;
+        }
+        post_data.push(node.name + '=' + node.value);
+    }
+    if (post_data.length == 0) {
+        return;
+    }
+    var url = new URL(btn.parentElement.action);
+    var referer = url.protocol + "//" + url.host + "/fleet.aspx?fleet=" + url.searchParams.get("fleet");
+    var repair_href = url.protocol + "//" + url.host + "/fleet.aspx?fleet=" + url.searchParams.get("fleet") + "&ch=1&action=repair&unit=all";
+    for (i = 0; i < times; ++i) {
+        postAsync(form.action, post_data.join('&'), true, addReport);
+        var req = new XMLHttpRequest();
+        req.open("GET", repair_href, true);
+        req.setRequestHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
+        req.setRequestHeader("referrer", referer);
+        req.send();
+    }
+}
 
 function selectFleet(ids) {
-    var all_btns = document.getElementsByClassName('input-button');
+    var atk_div = document.getElementById("fleets_attack-list");
+    if (!atk_div) {
+        return;
+    }
+    var all_btns = atk_div.getElementsByClassName('input-button');
     var btns = [];
     for (var i = 0; i < all_btns.length; i++) {
         var value = all_btns[i].getAttribute("value");
@@ -35,33 +114,27 @@ function selectFleet(ids) {
     for (i = 0 ; i < btns.length; ++i) {
         trs.push(btns[i].parentNode.parentNode.parentNode);
     }
-    var regs = [];
-    for (i = 0; i < ids.length; i++) {
-        regs.push(RegExp("player=" + ids[i] + "$"));
-    }
     for (i = 0; i < trs.length; ++i) {
         if (trs[i].childNodes.length != 4) {
             continue;
         }
         var tags = trs[i].childNodes[1].getElementsByTagName('a');
-        var str = tags[0].href.toString();
-        var flag = false;
-        for (var j = 0; j < regs.length; ++j) {
-            if (regs[j].test(str)) {
+        var url = new URL(tags[0].href);
+        var player_id = url.searchParams.get("player");
+        var flag = ids.length == 0;
+        for (var j = 0; j < ids.length; ++j) {
+            if (ids[j] == player_id) {
                 flag = true;
                 break;
             }
         }
         if (!flag) {
             body.removeChild(trs[i]);
+        } else {
+            btns[i].setAttribute("type", "button");
+            btns[i].addEventListener("click", function(){attack(this, 1);}, false);
         }
     }
-}
-
-//selectFleet(ids);
-
-function loadIds() {
-    console.log('a');
 }
 
 function checkForm(event) {
@@ -77,8 +150,6 @@ function checkForm(event) {
     addRow(table, id);
     saveIds(table);
 }
-
-
 
 function saveIds(table) {
     var tds = table.getElementsByClassName("ids-row");
@@ -110,11 +181,6 @@ function addRow(table, id) {
     cell2.style.cursor = "pointer";
     cell2.addEventListener("click", function(){delRow(this.parentNode);}, false);
 }
-
-var is_mouse_down;
-var init_x;
-var init_y;
-
 
 function initUI(ids) {
     var div = document.createElement("div");
@@ -224,9 +290,13 @@ function initUI(ids) {
     */
 }
 
-var ids_str = localStorage.getItem("ids");
-var ids = ids_str ? ids_str.split(',') : [];
-initUI(ids);
-ids.length > 0 ? selectFleet(ids) : console.log("empty");
-//dument.getElementById("ids-form").addEventListener("submit", checkForm(), false);
-//initUI([1,2,3]);
+(function() {
+    var ids_str = localStorage.getItem("ids");
+    var ids = ids_str ? ids_str.split(',') : [];
+    initUI(ids);
+    selectFleet(ids);
+    var ad = document.getElementById('advertising');
+    if (ad) {
+        ad.parentNode.removeChild(ad);
+    }
+})();
