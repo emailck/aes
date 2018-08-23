@@ -1,2 +1,2 @@
 # aes
-attack tool for astroempires
+attack tool
